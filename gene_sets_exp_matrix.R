@@ -323,6 +323,11 @@ gene_set_expression <- gsva(gene_expression,
                              kcdf = 'Poisson',
                              verbose = T)
 
+human_projects <- available_projects()
+project_info <- subset(human_projects,
+                       project == "SRP009615" & project_type == "data_sources")
+rse_gene_SRP009615 <- create_rse(project_info)
+
 
 
 
