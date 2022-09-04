@@ -341,5 +341,4 @@ assayNames(rse_gene_SRP107565)
 print('Done!')
 
 
-saveRDS(transcript_expression,'./transcript_expression_matrix.rds')
 
