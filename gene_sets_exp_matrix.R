@@ -7,7 +7,7 @@ library(GSVAdata)
 library(msigdbr)
 library(rhdf5)
 
-
+setwd('/home/projects/kvs_ccc/gset_matrix/')
 # Subset the data of interest from ARCHS4 database
 ARCHS4_transcript_file = "/home/databases/archs4/v11/human_transcript_v11_tpm.h5"
 samp = c("GSM742940","GSM1100210","GSM1239141","GSM1239140","GSM1113310","GSM1171525","GSM1100206","GSM830454","GSM1171527","GSM830453","GSM1239123","GSM937160","GSM942209","GSM1113308","GSM1239136","GSM1113301","GSM1239135","GSM1239119","GSM1239126","GSM1239124","GSM1113307","GSM1239127","GSM1239133","GSM1113302","GSM1100205","GSM1239137","GSM1239134","GSM1113298","GSM1113311","GSM830455","GSM1239131",
@@ -297,17 +297,22 @@ samp = c("GSM742940","GSM1100210","GSM1239141","GSM1239140","GSM1113310","GSM117
 human_transcript_v11 <- H5Fopen(ARCHS4_transcript_file)
 h5dump(human_transcript_v11,load=FALSE)    # Dump the content of an HDF5 file
 samples <- human_transcript_v11$meta$samples$geo_accession
-genes <- human_transcript_v11$meta$genes$genes
+transcripts <- human_transcript_v11$meta$transcripts$transcripts
 sample_locations = which(samples %in% samp)
-transcript_expression <- t(h5read(human_transcript_v11, "data/expression", index=list(sample_locations, 1:length(genes))))
+transcript_expression <- t(h5read(human_transcript_v11, "data/expression", index=list(sample_locations, 1:length(transcripts))))
 H5close()
-rownames(transcript_expression) <- genes
+rownames(transcript_expression) <- transcripts
 colnames(transcript_expression) <- samples[sample_locations]
+write.csv(transcript_expression,'./transcript_expression.csv')
+print('The generation of transcripts expression matrix has been done!')
+
 
 # Quantification from transcripts to genes level
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
                                                            isoformGeneAnnotation = '/home/databases/archs4/v11/Homo_sapiens.GRCh38.90.chr_patch_hapl_scaff.gtf',
 )
+write.csv(gene_expression,'./gene_expression.csv')
+print('The generation of genes expression matrix has been done!')
 
 # Quantification from genes to gene-sets level
 ## Import gene-sets from MSigDB (Use CP:KEGG from C2 collection as an example)
@@ -322,11 +327,19 @@ gene_set_expression <- gsva(gene_expression,
                              method = 'ssgsea',
                              kcdf = 'Poisson',
                              verbose = T)
+write.csv(gene_set_expression,'./gset_expression.csv')
+print('The generation of gene sets expression matrix has been done!')
 
+
+# recount3
 human_projects <- available_projects()
 project_info <- subset(human_projects,
-                       project == "SRP009615" & project_type == "data_sources")
-rse_gene_SRP009615 <- create_rse(project_info)
+                       project == "SRP107565" & project_type == "data_sources")
+rse_gene_SRP107565 <- create_rse(project_info)
+metadata(rse_gene_SRP107565)
+assayNames(rse_gene_SRP107565)
+print('Done!')
 
 
+saveRDS(transcript_expression,'./transcript_expression_matrix.rds')
 
