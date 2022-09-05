@@ -311,6 +311,9 @@ print('The generation of transcripts expression matrix has been done!')
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
                                                            isoformGeneAnnotation = '/home/databases/archs4/v11/Homo_sapiens.GRCh38.90.chr_patch_hapl_scaff.gtf',
 )
+gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
+                                                           isoformGeneAnnotation = './Homo_sapiens.GRCh38.87.chr_patch_hapl_scaff.gtf',
+)
 write.csv(gene_expression,'./gene_expression.csv')
 print('The generation of genes expression matrix has been done!')
 
