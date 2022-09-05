@@ -1,2 +1,2 @@
 # CCC
-This is a line from RStudio.
+This is a graduate project by Chunxu Han, who study Bioinformatics in DTU. 

@@ -1,17 +1,8 @@
-# install and import packages
-library(BiocManager)
-library(recount3)
-library(IsoformSwitchAnalyzeR)
-library(GSVA)
-library(GSVAdata)
-library(msigdbr)
-library(rhdf5)
-library(biomaRt)
-options(stringsAsFactors = F) 
+library("rhdf5")
 
-setwd('/home/projects/kvs_ccc/gset_matrix/')
-# Subset the data of interest from ARCHS4 database
-ARCHS4_transcript_file = "/home/databases/archs4/v11/human_transcript_v11_tpm.h5"
+destination_file = "human_matrix_v10.h5"
+extracted_expression_file = "Breast_expression_matrix.tsv"
+
 samp = c("GSM742940","GSM1100210","GSM1239141","GSM1239140","GSM1113310","GSM1171525","GSM1100206","GSM830454","GSM1171527","GSM830453","GSM1239123","GSM937160","GSM942209","GSM1113308","GSM1239136","GSM1113301","GSM1239135","GSM1239119","GSM1239126","GSM1239124","GSM1113307","GSM1239127","GSM1239133","GSM1113302","GSM1100205","GSM1239137","GSM1239134","GSM1113298","GSM1113311","GSM830455","GSM1239131",
          "GSM1239120","GSM942211","GSM1239130","GSM1113305","GSM1239132","GSM1239142","GSM1239138","GSM937168","GSM1100209","GSM1113299","GSM1113309","GSM1239129","GSM1239139","GSM830456","GSM937164","GSM937163","GSM937162","GSM1239128","GSM1113304","GSM1154039","GSM1239143","GSM937167","GSM937166","GSM937170","GSM1239121","GSM1113306","GSM1113303","GSM830457","GSM1239118","GSM1239122",
          "GSM1239144","GSM1239125","GSM942210","GSM1154040","GSM1113300","GSM1401701","GSM1556181","GSM1401724","GSM1401678","GSM1431879","GSM1897337","GSM1897288","GSM1401784","GSM1401710","GSM1537306","GSM1354575","GSM1401743","GSM1401762","GSM1401726","GSM1695877","GSM1354572","GSM1897290","GSM1401759","GSM1533420","GSM1897277","GSM1354563","GSM1431880","GSM1401742","GSM1401755","GSM1401757",
@@ -295,64 +286,12 @@ samp = c("GSM742940","GSM1100210","GSM1239141","GSM1239140","GSM1113310","GSM117
          "GSM5502986","GSM5502987","GSM5502989","GSM5502990","GSM5502993","GSM5502994","GSM5502995","GSM5502999","GSM5503000","GSM5527110","GSM5527111","GSM5527112","GSM5527113","GSM5527114","GSM5527115","GSM5527117","GSM5527119","GSM5527120","GSM5527121","GSM5548613","GSM5548614","GSM5548615","GSM5560632","GSM5560636","GSM5560637","GSM5574687","GSM5574688","GSM5574689","GSM5574690","GSM5574691",
          "GSM5574693","GSM5574694","GSM5574695","GSM5574696","GSM5574700","GSM5574701","GSM5574703","GSM5574704","GSM5574708","GSM5574709","GSM5574710","GSM5574711","GSM5574712","GSM5574713","GSM5574714","GSM5574718","GSM5574719","GSM5574724","GSM5574725","GSM5574729","GSM5574730","GSM5574731","GSM5574737","GSM5574738","GSM5574740","GSM5574742","GSM5574743","GSM5574744","GSM5580117","GSM5580121",
          "GSM5580123","GSM5580126","GSM5580128","GSM5580129","GSM5580132","GSM5580138","GSM5580139","GSM5580142","GSM5580143","GSM5580146")
-
-human_transcript_v11 <- H5Fopen(ARCHS4_transcript_file)
-h5dump(human_transcript_v11,load=FALSE)    # Dump the content of an HDF5 file
-samples <- human_transcript_v11$meta$samples$geo_accession
-transcripts <- human_transcript_v11$meta$transcripts$transcripts
+human_matrix_v10 <- H5Fopen('./human_matrix_v10.h5')
+h5dump(human_matrix_v10,load=FALSE)
+samples <- human_matrix_v10$meta$samples$geo_accession
+genes <- human_matrix_v10$meta$genes$genes
 sample_locations = which(samples %in% samp)
-transcript_expression <- t(h5read(human_transcript_v11, "data/expression", index=list(sample_locations, 1:length(transcripts))))
+expression <- t(h5read(human_matrix_v10, "data/expression", index=list(sample_locations, 1:length(genes))))
 H5close()
-rownames(transcript_expression) <- transcripts
-colnames(transcript_expression) <- samples[sample_locations]
-write.csv(transcript_expression,'./transcript_expression.csv')
-print('The generation of transcripts expression matrix has been done!')
-
-
-# Quantification from transcripts to genes level
-gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
-                                                           isoformGeneAnnotation = '/home/databases/archs4/v11/Homo_sapiens.GRCh38.90.chr_patch_hapl_scaff.gtf',
-)
-gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
-                                                           isoformGeneAnnotation = './Homo_sapiens.GRCh38.87.chr_patch_hapl_scaff.gtf',
-)
-write.csv(gene_expression,'./gene_expression.csv')
-print('The generation of genes expression matrix has been done!')
-saveRDS(gene_expression,'./gene_expression_matrix.rds')
-
-# Quantification from genes to gene-sets level
-## Import gene-sets from MSigDB (Use CP:KEGG from C2 collection as an example)
-KEGG_df_all <-  msigdbr(species = "Homo sapiens",
-                       category = "C2",
-                       subcategory = "CP:KEGG")
-KEGG_df <- dplyr::select(KEGG_df_all,gs_name,gs_exact_source,gene_symbol)
-kegg_list <- split(KEGG_df$gene_symbol, KEGG_df$gs_name)
-## Convert Ensemble ID to gene symbol
-ensembl <- useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
-ensembl_id <- c(row.names(gene_expression))
-genes <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id","hgnc_symbol"),values=ensembl_id,mart= ensembl)
-## Bring the matrix to genesets level
-gene_expression_matrix <- as.matrix(gene_expression)
-gene_set_expression <- gsva(gene_expression_matrix,
-                             gset.idx.list = kegg_list,
-                             method = 'ssgsea',
-                             kcdf = 'Poisson',
-                             verbose = T,
-                            
-                            )
-write.csv(gene_set_expression,'./gset_expression.csv')
-print('The generation of gene sets expression matrix has been done!')
-
-
-# recount3
-human_projects <- available_projects()
-project_info <- subset(human_projects,
-                       project == "SRP107565" & project_type == "data_sources")
-rse_gene_SRP107565 <- create_rse(project_info)
-metadata(rse_gene_SRP107565)
-assayNames(rse_gene_SRP107565)
-print('Done!')
-
-
-#how to git
-# i
+rownames(expression) <- genes
+colnames(expression) <- samples[sample_locations]
