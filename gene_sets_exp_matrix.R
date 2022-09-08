@@ -325,8 +325,7 @@ isoGene$gene_name <- aSwitchList$isoformFeatures$gene_name[match(
 
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
                                                            isoformGeneAnnotation = isoGene,
-                                                           quiet = FALSE
-)
+                                                           quiet = FALSE)
 write.csv(gene_expression,'./gene_expression.csv')
 print('The generation of genes expression matrix has been done!')
 saveRDS(gene_expression,'./gene_expression_matrix.rds')
@@ -345,22 +344,11 @@ gene_set_expression <- gsva(gene_expression_matrix,
                              gset.idx.list = CP_list,
                              method = 'ssgsea',
                              kcdf = 'Poisson',
-                             verbose = T
-                            )
+                             verbose = T)
 write.csv(gene_set_expression,'./gset_expression.csv')
 print('The generation of gene sets expression matrix has been done!')
 
 
-
-
-
-
-### Summarize to gene-name level
-isoformToGeneExp(
-  isoformRepExpression,
-  isoformGeneAnnotation=isoGene,
-  quiet = FALSE
-)
 
 
 # recount3
