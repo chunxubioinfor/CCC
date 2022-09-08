@@ -310,11 +310,22 @@ print('The generation of transcripts expression matrix has been done!')
 
 
 # Quantification from transcripts to genes level
+### Import GTF file
+aSwitchList <- importGTF(pathToGTF='./Homo_sapiens.GRCh38.87.chr_patch_hapl_scaff.gtf')
+
+### Create dataframe with associations
+isoGene <- unique(aSwitchList$isoformFeatures[c('isoform_id','gene_name')])
+colnames(isoGene) <- c('isoform_id','gene_name')
+
+### Overwrite with gene names
+isoGene$gene_name <- aSwitchList$isoformFeatures$gene_name[match(
+  isoGene$isoform_id, aSwitchList$isoformFeatures$isoform_id
+)]
+
+
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
-                                                           isoformGeneAnnotation = '/home/databases/archs4/v11/Homo_sapiens.GRCh38.90.chr_patch_hapl_scaff.gtf',
-)
-gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
-                                                           isoformGeneAnnotation = './Homo_sapiens.GRCh38.87.chr_patch_hapl_scaff.gtf',
+                                                           isoformGeneAnnotation = isoGene,
+                                                           quiet = FALSE
 )
 write.csv(gene_expression,'./gene_expression.csv')
 print('The generation of genes expression matrix has been done!')
@@ -322,26 +333,34 @@ saveRDS(gene_expression,'./gene_expression_matrix.rds')
 
 # Quantification from genes to gene-sets level
 ## Import gene-sets from MSigDB (Use CP:KEGG from C2 collection as an example)
-KEGG_df_all <-  msigdbr(species = "Homo sapiens",
+CP_df_all <-  msigdbr(species = "Homo sapiens",
                        category = "C2",
-                       subcategory = "CP:KEGG")
-KEGG_df <- dplyr::select(KEGG_df_all,gs_name,gs_exact_source,gene_symbol)
-kegg_list <- split(KEGG_df$gene_symbol, KEGG_df$gs_name)
-## Convert Ensemble ID to gene symbol
-ensembl <- useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
-ensembl_id <- c(row.names(gene_expression))
-genes <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id","hgnc_symbol"),values=ensembl_id,mart= ensembl)
+                       subcategory = "CP")
+CP_df <- dplyr::select(CP_df_all,gs_name,gs_exact_source,ensembl_gene)
+CP_list <- split(CP_df$ensembl_gene, CP_df$gs_name)
+
 ## Bring the matrix to genesets level
 gene_expression_matrix <- as.matrix(gene_expression)
 gene_set_expression <- gsva(gene_expression_matrix,
-                             gset.idx.list = kegg_list,
+                             gset.idx.list = CP_list,
                              method = 'ssgsea',
                              kcdf = 'Poisson',
-                             verbose = T,
-                            
+                             verbose = T
                             )
 write.csv(gene_set_expression,'./gset_expression.csv')
 print('The generation of gene sets expression matrix has been done!')
+
+
+
+
+
+
+### Summarize to gene-name level
+isoformToGeneExp(
+  isoformRepExpression,
+  isoformGeneAnnotation=isoGene,
+  quiet = FALSE
+)
 
 
 # recount3
