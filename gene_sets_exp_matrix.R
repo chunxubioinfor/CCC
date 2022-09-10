@@ -307,7 +307,7 @@ rownames(transcript_expression) <- transcripts
 colnames(transcript_expression) <- samples[sample_locations]
 write.csv(transcript_expression,'./transcript_expression.csv')
 print('The generation of transcripts expression matrix has been done!')
-
+saveRDS(transcript_expression,'./transcript_expression_matrix.rds')
 
 # Quantification from transcripts to genes level
 ### Import GTF file
@@ -330,35 +330,25 @@ print('The generation of genes expression matrix has been done!')
 saveRDS(gene_expression,'./gene_expression_matrix.rds')
 
 # Quantification from genes to gene-sets level
-## Import gene-sets from MSigDB (Use CP:KEGG from C2 collection as an example)
-CP_df_all <-  msigdbr(species = "Homo sapiens",
+## Import gene-sets from MSigDB (a combination of three gene sets -- CP + GO(BP+MF+CC) + Hallmarks)
+cp_gene_sets <-  msigdbr(species = "Homo sapiens",
                        category = "C2",
-                       subcategory = "CP")
-CP_df <- dplyr::select(CP_df_all,gs_name,gs_exact_source,ensembl_gene)
-CP_list <- split(CP_df$ensembl_gene, CP_df$gs_name)
+                       subcategory = c('CP','CP:BIOCARTA','CP:KEGG','CP:PID','CP:REACTOME','CP:WIKIPATHWAYS')
+                       )
+h_gene_sets <- msigdbr(species = "Homo sapiens", category = "H")
+go_gene_sets <- msigdbr(species = 'Homo sapiens',
+                        category = 'C5',
+                        subcategory = c('GO:BP','GO:CC','GO:MF')
+                        )
+gene_sets <- rbind(cp_gene_sets,h_gene_sets,go_gene_sets)
+gset_list <- split(gene_sets$gene_symbol, gene_sets$gs_name)
 
 ## Bring the matrix to genesets level
 gene_expression_matrix <- as.matrix(gene_expression)
 gene_set_expression <- gsva(gene_expression_matrix,
-                             gset.idx.list = CP_list,
+                             gset.idx.list = gset_list,
                              method = 'ssgsea',
                              kcdf = 'Poisson',
                              verbose = T)
 write.csv(gene_set_expression,'./gset_expression.csv')
 print('The generation of gene sets expression matrix has been done!')
-
-
-
-
-# recount3
-human_projects <- available_projects()
-project_info <- subset(human_projects,
-                       project == "SRP107565" & project_type == "data_sources")
-rse_gene_SRP107565 <- create_rse(project_info)
-metadata(rse_gene_SRP107565)
-assayNames(rse_gene_SRP107565)
-print('Done!')
-
-
-#how to git
-# i
