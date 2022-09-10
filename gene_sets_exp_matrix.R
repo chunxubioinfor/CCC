@@ -315,13 +315,12 @@ aSwitchList <- importGTF(pathToGTF='./Homo_sapiens.GRCh38.87.chr_patch_hapl_scaf
 
 ### Create dataframe with associations
 isoGene <- unique(aSwitchList$isoformFeatures[c('isoform_id','gene_name')])
-colnames(isoGene) <- c('isoform_id','gene_name')
+colnames(isoGene) <- c('isoform_id','gene_id')
 
 ### Overwrite with gene names
 isoGene$gene_name <- aSwitchList$isoformFeatures$gene_name[match(
   isoGene$isoform_id, aSwitchList$isoformFeatures$isoform_id
 )]
-
 
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
                                                            isoformGeneAnnotation = isoGene,
