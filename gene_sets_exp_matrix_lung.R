@@ -7,6 +7,8 @@ library(GSVAdata)
 library(msigdbr)
 library(rhdf5)
 library(biomaRt)
+library(GSA)
+library(clusterProfiler)
 options(stringsAsFactors = F) 
 
 setwd('/home/projects/kvs_ccc/gset_matrix/')
@@ -331,17 +333,11 @@ saveRDS(gene_expression,'./gene_expression_matrix.rds')
 
 # Quantification from genes to gene-sets level
 ## Import gene-sets from MSigDB (a combination of three gene sets -- CP + GO(BP+MF+CC) + Hallmarks)
-cp_gene_sets <-  msigdbr(species = "Homo sapiens",
-                       category = "C2",
-                       subcategory = c('CP','CP:BIOCARTA','CP:KEGG','CP:PID','CP:REACTOME','CP:WIKIPATHWAYS')
-                       )
-h_gene_sets <- msigdbr(species = "Homo sapiens", category = "H")
-go_gene_sets <- msigdbr(species = 'Homo sapiens',
-                        category = 'C5',
-                        subcategory = c('GO:BP','GO:CC','GO:MF')
-                        )
+cp_gene_sets <- clusterProfiler::read.gmt('c2.cp.v2022.1.Hs.symbols.gmt')
+h_gene_sets <- clusterProfiler::read.gmt('h.all.v2022.1.Hs.symbols.gmt')
+go_gene_sets <- clusterProfiler::read.gmt('c5.go.v2022.1.Hs.symbols.gmt')
 gene_sets <- rbind(cp_gene_sets,h_gene_sets,go_gene_sets)
-gset_list <- split(gene_sets$gene_symbol, gene_sets$gs_name)
+gset_list <- split(gene_sets$gene, gene_sets$term)
 
 ## Bring the matrix to genesets level
 gene_expression_matrix <- as.matrix(gene_expression)
