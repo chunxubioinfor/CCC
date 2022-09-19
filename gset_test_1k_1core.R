@@ -12,6 +12,7 @@ library(biomaRt)
 library(GSA)
 library(clusterProfiler)
 library(OmnipathR)
+
 options(stringsAsFactors = F) 
 
 start_time <- Sys.time()
@@ -35,6 +36,7 @@ write.csv(transcript_expression,'./test_output/transcript_expression.csv')
 print('The generation of transcripts expression matrix has been done!')
 saveRDS(transcript_expression,'./test_output/transcript_expression_matrix.rds')
 
+
 # Quantification from transcripts to genes level
 ## Import GTF file
 aSwitchList <- importGTF(pathToGTF='./Homo_sapiens.GRCh38.87.chr_patch_hapl_scaff.gtf')
@@ -43,12 +45,15 @@ aSwitchList <- importGTF(pathToGTF='./Homo_sapiens.GRCh38.87.chr_patch_hapl_scaf
 isoGene <- unique(aSwitchList$isoformFeatures[c('isoform_id','gene_name')])
 colnames(isoGene) <- c('isoform_id','gene_id')
 
+start_time_gene <- Sys.time()
 gene_expression <- IsoformSwitchAnalyzeR::isoformToGeneExp(transcript_expression,
                                                            isoformGeneAnnotation = isoGene,
                                                            quiet = FALSE)
-write.csv(gene_expression,'./test_output/gene_expression.csv')
+end_time_gene <- Sys.time()
+print(start_time_gene - end_time_gene)
+#write.csv(gene_expression,'./test_output/gene_expression.csv')
 print('The generation of genes expression matrix has been done!')
-saveRDS(gene_expression,'./test_output/gene_expression_matrix.rds')
+#saveRDS(gene_expression,'./test_output/gene_expression_matrix.rds')
 
 
 # Quantification from genes to gene-sets level
@@ -56,24 +61,29 @@ saveRDS(gene_expression,'./test_output/gene_expression_matrix.rds')
 cp_gene_sets <- clusterProfiler::read.gmt('./c2.cp.v2022.1.Hs.symbols.gmt')
 h_gene_sets <- clusterProfiler::read.gmt('./h.all.v2022.1.Hs.symbols.gmt')
 #go_gene_sets <- clusterProfiler::read.gmt('c5.go.v2022.1.Hs.symbols.gmt')
-go_gene_sets <- OmnipathR::go_annot_slim(organism = 'human',
+go_gene_sets_df <- OmnipathR::go_annot_slim(organism = 'human',
                                          slim = 'agr',
                                          aspects = c('C','F','P'),
                                          cache = TRUE)
+go_gene_sets <- dplyr::select(go_gene_sets_df,go_id,db_object_symbol)
+colnames(go_gene_sets) <- c('term','gene')
 gene_sets <- rbind(cp_gene_sets,h_gene_sets,go_gene_sets)
 gset_list <- split(gene_sets$gene, gene_sets$term)
 
 ## Bring the matrix to genesets level
+start_time_gset <- Sys.time()
 gene_expression_matrix <- as.matrix(gene_expression)
 gene_set_expression <- gsva(gene_expression_matrix,
                             gset.idx.list = gset_list,
                             method = 'ssgsea',
                             kcdf = 'Poisson',
-                            verbose = T)
-write.csv(gene_set_expression,'./gset_expression.csv')
+                            verbose = T,
+                            ssgsea.norm = F,
+                            parallel.sz = 16)
+#write.csv(gene_set_expression,'./gset_expression.csv')
 print('The generation of gene sets expression matrix has been done!')
 
-end_time <- Sys.time()
-print('The running time of this program is ',)
+end_time_gset <- Sys.time()
+print(end_time_gset - start_time_gset)
 
 
