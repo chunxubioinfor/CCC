@@ -12,6 +12,7 @@ library(snow)
 library(dynamicTreeCut,lib='/home/projects/kvs_ccc/R_packages/')
 library(fastcluster,lib='/home/projects/kvs_ccc/R_packages/')
 library(WGCNA,lib='/home/projects/kvs_ccc/R_packages/')
+library(clusterProfiler,lib='/home/projects/kvs_ccc/R_packages/')
 options(stringsAsFactors = F) 
 
 
@@ -57,11 +58,10 @@ print(paste('There are',nrow(arch4metaFilt),'samples available!'))
 sample_id <- arch4metaFilt$id
 samples <- h5read(archs4file, "/meta/samples/geo_accession")
 print(length(samples))
-transcripts <- h5read(archs4file,'meta/transcripts/transcripts')
+transcripts <- h5read(archs4file,'/meta/transcripts/transcripts')
 print(length(transcripts))
 sample_locations = which(samples %in% sample_id)
-transcript_expression <- h5read(archs4file, "data/expression", index=list(sample_locations, 1:length(transcripts)))
-transposeBigData(transcript_expression, blocksize = 20000)
+transcript_expression <- t(h5read(archs4file, "data/expression", index=list(sample_locations, 1:length(transcripts))))
 rownames(transcript_expression) <- transcripts
 colnames(transcript_expression) <- samples[sample_locations]
 print('The generation of transcripts expression matrix has been done!')
@@ -82,14 +82,14 @@ end_time <- Sys.time()
 print(end_time - start_time)
 print('The generation of genes expression matrix has been done!')
 print(paste('The dimension of the gene expression matrix is',dim(gene_expression),sep=' '))
-write_rds(gene_expression,'./output/gene_expression_matrix.rds',compress = 'gz')
-print('The gene expression matrix has been saved in /home/projects/kvs_ccc/output/gene_expression_matrix.rds')
+write_rds(gene_expression,'./output/gene_expression_matrix.rds.gz',compress = 'gz')
+print('The gene expression matrix has been saved in /home/projects/kvs_ccc/output/gene_expression_matrix.rds.gz')
 
 
 # Quantification from genes to gene-sets level
 ## Import gene-sets from MSigDB (a combination of three gene sets -- CP + GO slim + Hallmarks)
-cp_gene_sets <- clusterProfiler::read.gmt('./c2.cp.v2022.1.Hs.symbols.gmt')
-h_gene_sets <- clusterProfiler::read.gmt('./h.all.v2022.1.Hs.symbols.gmt')
+cp_gene_sets <- clusterProfiler::read.gmt('./data/c2.cp.v2022.1.Hs.symbols.gmt')
+h_gene_sets <- clusterProfiler::read.gmt('./data/h.all.v2022.1.Hs.symbols.gmt')
 go_gene_sets_df <- OmnipathR::go_annot_slim(organism = 'human',
                                             slim = 'agr',
                                             aspects = c('C','F','P'),
@@ -113,7 +113,7 @@ gene_set_expression <- gsva(gene_expression_matrix,
 print('The generation of gene sets expression matrix has been done!')
 print(paste('The dimension of the gene expression matrix is',dim(gene_set_expression),sep=' '))
 write_rds(gene_set_expression,'./output/gene_set_expression_matrix.rds',compress = 'gz')
-print('The gene expression matrix has been saved in /home/projects/kvs_ccc/output/gene_set_expression_matrix.rds')
+print('The gene expression matrix has been saved in /home/projects/kvs_ccc/output/gene_set_expression_matrix.rds.gz')
 
 end_time_gset <- Sys.time()
 print(paste('Done! The overall time cost is',end_time_gset - start_time_gset))
