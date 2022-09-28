@@ -1,6 +1,13 @@
-cor_matrix_p <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
+## The Rscript run on my Macbook to calculate the correlation matrix ##
+## Make some alterations to the order of the for and if loop ##
+## Dramatically save time and space ##
+## 14min for 10 samples and all gene sets ##
+
+# In cooperation with the script file correlation_matrix.R
+
+cor_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
                      dimnames = list(rownames(gene_set_expression),c(ligand,receptor)))
-p_matrix_p <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
+p_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
                    dimnames = list(rownames(gene_set_expression),c(ligand,receptor)))
 pb <- txtProgressBar(style=3)
 print('Begin!')
@@ -32,8 +39,8 @@ for (i in 1:ncol(cor_matrix)){
     cor_test <- cor.test(gene_set_score,lr_score,method = 'spearman',exact=FALSE)
     cor <- cor_test$estimate
     p <- cor_test$p.value
-    cor_matrix_p[j,i] <- cor
-    p_matrix_p[j,i] <- p
+    cor_matrix[j,i] <- cor
+    p_matrix[j,i] <- p
     loop <- loop + 1
     setTxtProgressBar(pb, loop/(nrow(cor_matrix)*ncol(cor_matrix)))
   }
