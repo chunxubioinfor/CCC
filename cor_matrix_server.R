@@ -51,4 +51,57 @@ cor_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + le
 p_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
                    dimnames = list(rownames(gene_set_expression),c(ligand,receptor)))
 
-pb <- txtProgressBar(style=3)
+print('The preparation of matix generation is done!')
+star_time <- Sys.time()
+
+cor_p_matrix <- function(cor_matrix,p_matrix,gene_expression,gene_set_expression,method = 'pearson'){
+  loop <- 0
+  pb <- txtProgressBar(style=3)
+  for (i in 1:ncol(cor_matrix)){
+    lr_symbol <- colnames(cor_matrix)[i]
+    print(lr_symbol)
+    if (str_detect(lr_symbol,'_')){
+      subunit <- unlist(strsplit(lr_symbol,split = '_'))
+      if (all(subunit %in% rownames(gene_expression))){
+        lr_score <- complex_expression(subunit)
+      } else {
+        loop <- loop + nrow(cor_matrix)  #skip the non-covered columns
+        next
+      }
+    }
+    else {
+      if (lr_symbol %in% rownames(gene_expression)){
+        lr_score <- gene_expression[lr_symbol,]
+      } else {
+        loop <- loop + nrow(cor_matrix)
+        next
+      }
+    }
+    for (j in 1:nrow(cor_matrix)){
+      gene_set_symbol <- rownames(cor_matrix)[j]
+      gene_set_score <- gene_set_expression[gene_set_symbol,]
+      if (method == 'spearman'){
+        cor_test <- cor.test(gene_set_score,lr_score,method = 'spearman',exact=FALSE)
+      } else if (method == 'pearson') {
+        cor_test <- cor.test(gene_set_score,lr_score,method = 'pearson')
+      }
+      cor <- cor_test$estimate
+      p <- cor_test$p.value
+      cor_matrix[j,i] <- cor
+      p_matrix[j,i] <- p
+      loop <- loop + 1
+      setTxtProgressBar(pb, loop/(nrow(cor_matrix)*ncol(cor_matrix)))
+    }
+  }
+  result <- list(cor_matrix,p_matrix)
+  return(result)
+  close(pb)
+}
+
+cor_result <- cor_p_matrix(cor_matrix,p_matrix,gene_expression,gene_set_expression,method = 'spearman')
+saveRDS(cor_result,'./output/correlation_p_matrix.rds')
+print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/correlation_p_matrix.rds')
+end_time <- Sys.time()
+run_time <- end_time - star_time
+print(paste('The time cost is',run_time))
+
