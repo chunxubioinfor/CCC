@@ -1,6 +1,6 @@
-## The Rscript run on the server using 4 cores to calculate the correlation matrix ##
+## The Rscript run on the server using single core to calculate the correlation matrix ##
 ## Assign the method 'spearman' and 'perason' to function ##
-## But the test showed more time cost? I don't know why? ##
+## This code was running successfully and costs 5 and more days ##
 
 library(OmnipathR)
 library(dplyr)
@@ -8,11 +8,9 @@ library(stringr)
 library(parallel)
 library(snowfall,lib = '/home/projects/kvs_ccc/R_packages/')
 setwd('/home/projects/kvs_ccc/')
-
 # Generation of correlation matrix
 ## Import the expression matrix
 gene_expression_matrix <- readRDS('./output/gene_expression_matrix.rds')
-gene_expression_matrix <- as.matrix(gene_expression_matrix)
 gene_set_expression_matrix <- readRDS('./output/gene_set_expression_matrix.rds')
 icn <- readRDS('./data/icn.rds')
 ligand_receptor <- icn %>% dplyr::filter(category_intercell_source == 'ligand',
@@ -26,6 +24,9 @@ print(paste('The number of the receptor is',length(receptor)))
 
 ## Define a function to calculate the geomatrix mean
 ## Condidering the zero issues
+
+## Define a function to calculate scores for the ligand and receptor complex
+## A list-like objects of subunits of the complex as the input
 complex_expression <- function(subunit){
   exp <- gene_expression_matrix[subunit,]
   gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
@@ -45,10 +46,11 @@ complex_expression <- function(subunit){
   return(complex_exp)
 }
 
-## Define a function to calculate scores for the ligand and receptor complex
-## A list-like objects of subunits of the complex as the input
+chunk_number <- 6
+lr_group <- split(c(ligand,receptor),cut(seq_along(c(ligand,receptor)),chunk_number,labels = FALSE))
+
+
 cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expression=gene_set_expression_matrix,method = 'spearman'){
-  lr <- unlist(lr)
   complex_expression <- function(subunit){
     exp <- gene_expression_matrix[subunit,]
     gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
@@ -66,7 +68,7 @@ cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expr
     }
     complex_exp <- apply(exp,2,gm_mean,na.rm=TRUE,zero.propagate = TRUE)
     return(complex_exp)
-  }	
+  }
   cor_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(lr),
                        dimnames = list(rownames(gene_set_expression),lr))
   p_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(lr),
@@ -115,18 +117,17 @@ cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expr
   close(pb)
 }
 
-chunk_number <- 6
-lr_group <- split(c(ligand,receptor),cut(seq_along(c(ligand,receptor)),chunk_number,labels = FALSE))
-cl <- makeCluster(4)
+cl <- makeCluster(2)
 clusterEvalQ(cl,{library(stringr)
   library(dplyr)})
 clusterExport(cl,c('gene_expression_matrix','gene_set_expression_matrix'))
-print('Preparation is done!')
-start_time <- Sys.time()
+print('Preparation!')
 cor_result <- parLapply(cl,lr_group,cor_p_matrix)
-saveRDS(cor_result,'/output/cor_p_matrix.rds')
-print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/cor_p_matrix.rds')
-end_time <- Sys.time()
-run_time <- end_time - star_time
-print(paste('The time cost is',run_time))
 stopCluster(cl)
+
+
+saveRDS(cor_result,'./output/correlation_p_matrix.rds')
+print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/correlation_p_matrix.rds')
+end_time <- Sys.time()
+run_time <- end_time - start_time
+print(paste('The time cost is',run_time))

@@ -1,18 +1,15 @@
-## The Rscript run on the server using 4 cores to calculate the correlation matrix ##
+## The Rscript run on the server using 16 cores to calculate the correlation matrix ##
 ## Assign the method 'spearman' and 'perason' to function ##
 ## But the test showed more time cost? I don't know why? ##
-
 library(OmnipathR)
 library(dplyr)
 library(stringr)
-library(parallel)
-library(snowfall,lib = '/home/projects/kvs_ccc/R_packages/')
-setwd('/home/projects/kvs_ccc/')
+library(snowfall)
 
+setwd('/home/projects/kvs_ccc/')
 # Generation of correlation matrix
 ## Import the expression matrix
 gene_expression_matrix <- readRDS('./output/gene_expression_matrix.rds')
-gene_expression_matrix <- as.matrix(gene_expression_matrix)
 gene_set_expression_matrix <- readRDS('./output/gene_set_expression_matrix.rds')
 icn <- readRDS('./data/icn.rds')
 ligand_receptor <- icn %>% dplyr::filter(category_intercell_source == 'ligand',
@@ -26,8 +23,11 @@ print(paste('The number of the receptor is',length(receptor)))
 
 ## Define a function to calculate the geomatrix mean
 ## Condidering the zero issues
+
+## Define a function to calculate scores for the ligand and receptor complex
+## A list-like objects of subunits of the complex as the input
 complex_expression <- function(subunit){
-  exp <- gene_expression_matrix[subunit,]
+  exp <- gene_expression[subunit,]
   gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
     if(any(x < 0, na.rm = TRUE)){
       return(NaN)
@@ -45,28 +45,12 @@ complex_expression <- function(subunit){
   return(complex_exp)
 }
 
-## Define a function to calculate scores for the ligand and receptor complex
-## A list-like objects of subunits of the complex as the input
-cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expression=gene_set_expression_matrix,method = 'spearman'){
-  lr <- unlist(lr)
-  complex_expression <- function(subunit){
-    exp <- gene_expression_matrix[subunit,]
-    gm_mean = function(x, na.rm=TRUE, zero.propagate = FALSE){
-      if(any(x < 0, na.rm = TRUE)){
-        return(NaN)
-      }
-      if(zero.propagate){
-        if(any(x == 0, na.rm = TRUE)){
-          return(0)
-        }
-        exp(mean(log(x), na.rm = na.rm))
-      } else {
-        exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-      }
-    }
-    complex_exp <- apply(exp,2,gm_mean,na.rm=TRUE,zero.propagate = TRUE)
-    return(complex_exp)
-  }	
+chunk_number <- 6
+lr_group <- split(c(ligand,receptor),cut(seq_along(c(ligand,receptor)),chunk_number,labels = FALSE))
+
+
+cor_p_matrix <- function(lr_num,gene_expression = gene_expression_matrix,gene_set_expression=gene_set_expression_matrix,method = 'spearman'){
+  lr <- lr_group[lr_num]
   cor_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(lr),
                        dimnames = list(rownames(gene_set_expression),lr))
   p_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(lr),
@@ -97,9 +81,9 @@ cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expr
       gene_set_symbol <- rownames(cor_matrix)[j]
       gene_set_score <- gene_set_expression[gene_set_symbol,]
       if (method == 'spearman'){
-        cor_test <- cor.test(gene_set_score,lr_score,method = 'spearman',exact=FALSE)
+        cor_test <- cor.test(gene_set_score,lr_score,method = 'spearman',exact=FALSE,nThreads = 16)
       } else if (method == 'pearson') {
-        cor_test <- cor.test(gene_set_score,lr_score,method = 'pearson')
+        cor_test <- cor.test(gene_set_score,lr_score,method = 'pearson',nThreads = 16)
       }
       cor <- cor_test$estimate
       p <- cor_test$p.value
@@ -115,18 +99,22 @@ cor_p_matrix <- function(lr,gene_expression=gene_expression_matrix,gene_set_expr
   close(pb)
 }
 
-chunk_number <- 6
-lr_group <- split(c(ligand,receptor),cut(seq_along(c(ligand,receptor)),chunk_number,labels = FALSE))
-cl <- makeCluster(4)
-clusterEvalQ(cl,{library(stringr)
-  library(dplyr)})
-clusterExport(cl,c('gene_expression_matrix','gene_set_expression_matrix'))
-print('Preparation is done!')
+print(paste('The number of available cores is',detectCores()))
+n_cores <- 2
+print(paste('Here, we will use',n_cores,'cores!'))
 start_time <- Sys.time()
-cor_result <- parLapply(cl,lr_group,cor_p_matrix)
-saveRDS(cor_result,'/output/cor_p_matrix.rds')
-print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/cor_p_matrix.rds')
+sfInit(parallel = TRUE, cpus = n_cores)
+sfLibrary(dplyr)
+sfLibrary(stringr)
+sfExport('gene_expression_matrix','gene_set_expression_matrix','lr_group')
+sfExport('complex_expression')
+cor_result <- sfLapply(1:chunk_number,cor_p_matrix)
+sfStop()
+
+
+saveRDS(cor_result,'./output/correlation_p_matrix.rds')
+print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/correlation_p_matrix.rds')
 end_time <- Sys.time()
 run_time <- end_time - star_time
 print(paste('The time cost is',run_time))
-stopCluster(cl)
+
