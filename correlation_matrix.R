@@ -22,6 +22,8 @@ dplyr::select(category_intercell_source,source,source_genesymbol,
 ligand <- unique(ligand_receptor$source_genesymbol)
 receptor <- unique(ligand_receptor$target_genesymbol)
 
+ligand <- unique(icn$source_genesymbol)
+receptor <- unique(icn$target_genesymbol)
 ## Establish the spearman correlation matrix
 cor_matrix <- matrix(nrow = nrow(gene_set_expression),ncol = length(ligand) + length(receptor),
                      dimnames = list(rownames(gene_set_expression),c(ligand,receptor)))
