@@ -1,6 +1,6 @@
 # The python scripts which apply a new correlation calculation method #
 # Test on my own PC with the files with 1000 samples and all gene sets #
-# Run the scripts on server (conda py39 environment)
+# A time cost of 20 hours using single core #
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,7 @@ def complex_expression(unit_list):
 
 cor_df = pd.DataFrame(columns= ligand_receptor,index= gene_set_expression_df.index.values)
 loop = 0
-with tqdm(total=cor_df.shape[2]) as pbar:
+with tqdm(total=cor_df.shape[1]) as pbar:
     for lr_symbol in ligand_receptor:
         loop += 1
         print(lr_symbol)
