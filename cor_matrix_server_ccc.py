@@ -32,10 +32,12 @@ ligand_receptor = ligand + receptor
 
 def gm_mean(x, zero_propagate=True):
     if (np.array(x) < 0).any():
-        return None
+        g_mean = 0
+        return g_mean
     if zero_propagate is True:
         if 0 in x:
-            return 0
+            g_mean = 0
+            return g_mean
         else:
             g_mean = math.exp(np.mean(np.log(x)))
             return g_mean
