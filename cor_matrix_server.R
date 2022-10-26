@@ -124,7 +124,7 @@ clusterExport(cl,c('gene_expression_matrix','gene_set_expression_matrix'))
 print('Preparation is done!')
 start_time <- Sys.time()
 cor_result <- parLapply(cl,lr_group,cor_p_matrix)
-saveRDS(cor_result,'/output/cor_p_matrix.rds')
+saveRDS(cor_result,'./output/cor_p_matrix.rds')
 print('The result list containing both correaltion coefficient and p.value matrix has been saved in ./output/cor_p_matrix.rds')
 end_time <- Sys.time()
 run_time <- end_time - star_time
