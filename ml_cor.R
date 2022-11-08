@@ -12,11 +12,11 @@ for (i in 1:nrow(cor_matrix_pearson)) {
 }
 }
 
-# split the data into a train and test set
-index <- 1:ncol(cor_matrix_pearson)
-train_data_index <- sample(index,trunc(length(index)/2))
+# Split the matrix data into a train and test set
+train_data_index <- sample(receptor,trunc(length(receptor)/2))
+test_data_index <- setdiff(receptor,train_data_index)
 train_data <- cor_matrix_pearson[kegg_index,train_data_index]
-test_data <- cor_matrix_pearson[kegg_index,-train_data_index]
+test_data <- cor_matrix_pearson[kegg_index,test_data_index]
 print(dim(train_data))
 print(dim(test_data))
 
@@ -37,6 +37,21 @@ for (i in 1:length(kegg_symbols)){
     kegg_ids[i] <- kegg_symbols[i]
   })
 }
-
 val_df <- data.frame(symbol = kegg_symbols,id = kegg_ids)
+# There are some pathways are not transformed automatically
+# Manually correct the data.frame
+val_df <- read.csv('./val_df.csv',header = TRUE)
+val_df$symbol <- row.names(train_data)
 
+# Get the intersection of unique KEGG pathways in the curated validation data and KEGG pathways of GSEA 
+# Get the intersection of receptors
+kegg_pathway <- c()
+for (i in 1:length(kegg_pathway_tmp)){
+  kegg_pathway <- c(kegg_pathway,unlist(strsplit(kegg_pathway_tmp[i],',')))
+}
+kegg_pathway <- unique(kegg_pathway)
+length(kegg_pathway)
+val_kegg_pathway <- intersect(kegg_pathway,val_df$id)
+print(paste('There are',length(val_kegg_pathway),'available pathways to validate!'))
+
+# Get the 
