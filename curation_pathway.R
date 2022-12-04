@@ -3,6 +3,7 @@ library(jsonlite)
 library(gdata)
 library(dplyr)
 library(tidyr)
+library(Ipaper)
 setwd('~/Desktop/CCI_DK/ccc/')
 options(stringsAsFactors = FALSE)
 # Curation of KEGG pathways
@@ -56,10 +57,12 @@ write.csv(curation_pathway_filtered,'./curation_pathway_filtered.csv')
 # Define a function to calculate the average ranking given a correlation data.frame and a validation set
 
 ranking_cal <- function(ranking_df,curation_pathway,file_name){
+  pb <- txtProgressBar(style=3)
   average_ranking <- c()
   for (i in 1:ncol(ranking_df)){
-    receptor <- colnames(ranking_df)[i]
-    receptor_curation_df <- filter(curation_pathway,receptor = receptor)
+    setTxtProgressBar(pb, i/ncol(ranking_df))
+    receptor_s <- colnames(ranking_df)[i]
+    receptor_curation_df <- filter(curation_pathway,receptor == receptor_s)
     pathway_2_receptor <- unique(receptor_curation_df$gsea_symbol)
     ranking <- c()
     for (j in 1:length(pathway_2_receptor)){
@@ -70,40 +73,31 @@ ranking_cal <- function(ranking_df,curation_pathway,file_name){
     average_ranking <- c(average_ranking,ranking)
   }
   print(mean(average_ranking,na.rm = TRUE))
-  print(matrix(average_ranking,nrow = 18))
-}
-
-
-ranking_cal <- function(ranking_df,kegg_val,file_name){
-  average_ranking <- c()
-  for (i in 1:length(colnames(ranking_df))){
-    receptor <- colnames(ranking_df)[i]
-    receptor_cellcall_df <- kegg_val[kegg_val$Receptor_Symbol == receptor,]
-    pathway_cellcall_tmp <- receptor_cellcall_df$pathway_ID
-    pathway_cellcall <- c()
-    for (k in 1:length(pathway_cellcall_tmp)){
-      pathway_cellcall <- c(pathway_cellcall,unlist(strsplit(pathway_cellcall_tmp[k],',')))
-    }
-    pathway_cellcall <- intersect(unique(pathway_cellcall),kegg_df$id)
-    ranking <- c()
-    for (j in 1:length(pathway_cellcall)){
-      pathway <- pathway_cellcall[j]
-      ranking <- c(ranking,nrow(ranking_df) +1 - rank(ranking_df[,i])[pathway])
-    }
-    ranking <- mean(ranking)
-    average_ranking <- c(average_ranking,ranking)
-  }
-  print(mean(average_ranking,na.rm = TRUE))
-  print(matrix(average_ranking,nrow = 18))
   average_ranking_df <- data.frame(receptor = colnames(ranking_df),average_ranking)
+  write.csv(average_ranking_df,file = paste('./',file_name,'.csv',sep = ''))
   p <- ggplot(average_ranking_df, aes(x = average_ranking)) +
     geom_density(color = 'black', fill = 'gray') +
     geom_vline(xintercept = mean(average_ranking,na.rm = TRUE),color = 'red')
   p
   h <- ggplot(average_ranking_df,aes(x = average_ranking)) + 
-    geom_histogram(bins = 40) + 
-    geom_vline(xintercept = mean(average_ranking,na.rm = TRUE),color = 'red')
+    geom_histogram(bins = 100) + 
+    geom_vline(xintercept = mean(average_ranking,na.rm = TRUE),color = 'red') +
+    geom_vline(xintercept = 10,color = 'blue')
   write_fig(h,paste('./',file_name,'.png',sep = ''))
   return(average_ranking)
+  
+  close(pb)
 }
 
+## 1. The valid pathways 
+receptor_val <- intersect(receptor_ref,unique(curation_pathway$receptor))
+matrix_spearman_kegg_wiki <- cor_matrix_spearman[unique(curation_pathway$gsea_symbol),receptor_val]
+ranking_cal(matrix_spearman_kegg_wiki,curation_pathway_filtered,file_name = 'average_ranking_hist_1')
+
+## 2. All KEGG and WIKI pathways
+matrix_spearman_kegg_wiki_all <- cor_matrix_spearman[c(kegg_symbols,wiki_symbols),receptor_val]
+ranking_cal(matrix_spearman_kegg_wiki_all,curation_pathway_filtered,file_name = 'average_ranking_hist_2')
+
+## 3. All the pathways
+matrix_spearman <- cor_matrix_spearman[,receptor_val]
+ranking_cal(matrix_spearman,curation_pathway_filtered,file_name = 'average_ranking_hist_3')
