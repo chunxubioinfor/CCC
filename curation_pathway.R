@@ -101,3 +101,14 @@ ranking_cal(matrix_spearman_kegg_wiki_all,curation_pathway_filtered,file_name = 
 ## 3. All the pathways
 matrix_spearman <- cor_matrix_spearman[,receptor_val]
 ranking_cal(matrix_spearman,curation_pathway_filtered,file_name = 'average_ranking_hist_3')
+
+
+# Try applying different algorithms
+
+# For the pathway
+# Randomly divide the curation dataset into two groups, training data (2/3) and testing data (1/3)
+all_pathway_kegg <- unique(curation_pathway_kegg$gsea_symbol)
+all_pathway_wiki <- unique(curation_pathway_wiki$gsea_symbol)
+testing_data <- c(sample(all_pathway_kegg,trunc(length(all_pathway_kegg)/3)),
+                  sample(all_pathway_wiki,trunc(length(all_pathway_wiki)/3)))
+training_data <- 
