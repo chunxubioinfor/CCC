@@ -102,6 +102,101 @@ ranking_cal(matrix_spearman_kegg_wiki_all,curation_pathway_filtered,file_name = 
 matrix_spearman <- cor_matrix_spearman[,receptor_val]
 ranking_cal(matrix_spearman,curation_pathway_filtered,file_name = 'average_ranking_hist_3')
 
+## Make a attempt to use median rather than mean
+# Define a function to calculate the average ranking given a correlation data.frame and a validation set
+ranking_cal <- function(ranking_df,curation_pathway,file_name){
+  pb <- txtProgressBar(style=3)
+  average_ranking <- c()
+  for (i in 1:ncol(ranking_df)){
+    setTxtProgressBar(pb, i/ncol(ranking_df))
+    receptor_s <- colnames(ranking_df)[i]
+    receptor_curation_df <- filter(curation_pathway,receptor == receptor_s)
+    pathway_2_receptor <- unique(receptor_curation_df$gsea_symbol)
+    ranking <- c()
+    for (j in 1:length(pathway_2_receptor)){
+      pathway <- pathway_2_receptor[j]
+      ranking <- c(ranking,nrow(ranking_df) +1 - rank(ranking_df[,i])[pathway])
+    }
+    ranking <- median(ranking,na.rm = TRUE)
+    average_ranking <- c(average_ranking,ranking)
+  }
+  print(median(average_ranking,na.rm = TRUE))
+  average_ranking_df <- data.frame(receptor = colnames(ranking_df),average_ranking)
+  write.csv(average_ranking_df,file = paste('./',file_name,'.csv',sep = ''))
+  p <- ggplot(average_ranking_df, aes(x = average_ranking)) +
+    geom_density(color = 'black', fill = 'gray') +
+    geom_vline(xintercept = mean(average_ranking,na.rm = TRUE),color = 'red')
+  p
+  h <- ggplot(average_ranking_df,aes(x = average_ranking)) + 
+    geom_histogram(bins = 100) + 
+    geom_vline(xintercept = median(average_ranking,na.rm = TRUE),color = 'red')
+  write_fig(h,paste('./',file_name,'.png',sep = ''))
+  return(average_ranking)
+  close(pb)
+}
+ranking_cal(matrix_spearman_kegg_wiki,curation_pathway_filtered,file_name = 'median_ranking_hist_1')
+ranking_cal(matrix_spearman_kegg_wiki_all,curation_pathway_filtered,file_name = 'median_ranking_hist_2')
+ranking_cal(matrix_spearman,curation_pathway_filtered,file_name = 'median_ranking_hist_3')
+
+# The performance is quite great
+# At the pathway point of view
+# Define a function to calculate the average ranking given a correlation data.frame and a validation set
+ranking_cal <- function(ranking_df,curation_pathway,file_name,focus){
+  pb <- txtProgressBar(style=3)
+  average_ranking <- c()
+  if (focus == 'receptor'){
+    for (i in 1:ncol(ranking_df)){
+      setTxtProgressBar(pb, i/ncol(ranking_df))
+      receptor_s <- colnames(ranking_df)[i]
+      receptor_curation_df <- filter(curation_pathway,receptor == receptor_s)
+      pathway_2_receptor <- unique(receptor_curation_df$gsea_symbol)
+      ranking <- c()
+      for (j in 1:length(pathway_2_receptor)){
+        pathway <- pathway_2_receptor[j]
+        ranking <- c(ranking,nrow(ranking_df) +1 - rank(ranking_df[,i])[pathway])
+      }
+      ranking <- median(ranking,na.rm = TRUE)
+      average_ranking <- c(average_ranking,ranking)
+    }
+    print(median(average_ranking,na.rm = TRUE))
+    average_ranking_df <- data.frame(receptor = colnames(ranking_df),average_ranking)
+    write.csv(average_ranking_df,file = paste('./',file_name,'.csv',sep = ''))
+    h <- ggplot(average_ranking_df,aes(x = average_ranking)) + 
+      geom_histogram(bins = 100) + 
+      geom_vline(xintercept = median(average_ranking,na.rm = TRUE),color = 'red')
+    write_fig(h,paste('./',file_name,'.png',sep = ''))
+    return(average_ranking)
+    close(pb)
+    }
+    else if (focus == 'pathway'){
+      for (i in 1:nrow(ranking_df)){
+        setTxtProgressBar(pb, i/nrow(ranking_df))
+        pathway_s <- rownames(ranking_df)[i]
+        pathway_curation_df <- filter(curation_pathway,gsea_symbol == pathway_s)
+        receptor_2_pathway <- unique(pathway_curation_df$receptor)
+        ranking <- c()
+        for (j in 1:length(receptor_2_pathway)){
+          receptor <- receptor_2_pathway[j]
+          ranking <- c(ranking,ncol(ranking_df)+1 - rank(ranking_df[i,])[receptor])
+        }
+        ranking <- median(ranking,na.rm = TRUE)
+        average_ranking <- c(average_ranking,ranking)
+      }
+      print(median(average_ranking,na.rm = TRUE))
+      average_ranking_df <- data.frame(pathway = rownames(ranking_df),average_ranking)
+      write.csv(average_ranking_df,file = paste('./',file_name,'.csv',sep = ''))
+      h <- ggplot(average_ranking_df,aes(x = average_ranking)) + 
+        geom_histogram(bins = 100) + 
+        geom_vline(xintercept = median(average_ranking,na.rm = TRUE),color = 'red')
+      write_fig(h,paste('./',file_name,'.png',sep = ''))
+      return(average_ranking)
+      close(pb)
+    }
+  }
+receptor_val <- intersect(receptor_ref,unique(curation_pathway$receptor))
+matrix_spearman_kegg_wiki <- cor_matrix_spearman[unique(curation_pathway$gsea_symbol),receptor_val]
+ranking_cal(matrix_spearman_kegg_wiki,curation_pathway_filtered,file_name = 'median_ranking_hist_p_1',focus = 'pathway')
+ranking_cal(cor_matrix_spearman[unique(curation_pathway$gsea_symbol),],curation_pathway_filtered,file_name = 'median_ranking_hist_p_2',focus = 'pathway')
 
 # Try applying different algorithms
 
@@ -109,6 +204,45 @@ ranking_cal(matrix_spearman,curation_pathway_filtered,file_name = 'average_ranki
 # Randomly divide the curation dataset into two groups, training data (2/3) and testing data (1/3)
 all_pathway_kegg <- unique(curation_pathway_kegg$gsea_symbol)
 all_pathway_wiki <- unique(curation_pathway_wiki$gsea_symbol)
-testing_data <- c(sample(all_pathway_kegg,trunc(length(all_pathway_kegg)/3)),
-                  sample(all_pathway_wiki,trunc(length(all_pathway_wiki)/3)))
-training_data <- 
+testing_pathway_kegg <- sample(all_pathway_kegg,trunc(length(all_pathway_kegg)/3))
+testing_pathway_wiki <- sample(all_pathway_wiki,trunc(length(all_pathway_wiki)/3))
+testing_set <- c(testing_pathway_kegg,testing_pathway_wiki)  # testing data,just leave alone
+training_pathway_kegg <- setdiff(all_pathway_kegg,testing_pathway_kegg)
+training_pathway_wiki <- setdiff(all_pathway_wiki,testing_pathway_wiki)
+training_set <- setdiff(unique(curation_pathway$gsea_symbol),testing_set)
+
+# Cross validation 
+# Define a function which group the training data into train and validation set for cross-validation step
+CVgroup <- function(k,datasize,seed){
+  cvlist <- list()
+  set.seed(seed)
+  n <- rep(1:k,ceiling(datasize/k))[1:datasize]    #将数据分成K份，并生成的完成数据集n
+  temp <- sample(n,datasize)   #把n打乱
+  x <- 1:k
+  dataseq <- 1:datasize
+  cvlist <- lapply(x,function(x) dataseq[temp==x])  #dataseq中随机生成k个随机有序数据列
+  return(cvlist)
+}
+
+# Define a function which calculate the performance score in the ranking method
+top_score <- function(ranking_df,curation_pathway,pathway,ranking_thr,file_name){
+  score_mtx <- c()
+  # Extract the top receptors to the certain pathway from the matrix
+  top_list <- names(sort(ranking_df[pathway,],decreasing = TRUE)[1:ranking_thr])
+  # Extract the curated receptors as reference
+  receptor_curation <- filter(curation_pathway,gsea_symbol == pathway)$receptor
+  tp <- length(intersect(top_list,receptor_curation))
+  fp <- length(top_list) - length(intersect(top_list,receptor_curation))
+  tn <- ncol(ranking_df) - length(receptor_curation) - fp
+  sensitivity <- tp/length(receptor_curation)
+  specificity <- tn/(ncol(ranking_df) - length(receptor_curation))
+  FDR <- fp/length(top_list)
+  score_mtx <- c(sensitivity,specificity,FDR)
+  return(score_mtx)
+}
+
+
+ligand_receptor <- colnames(cor_matrix_pearson)
+
+
+
