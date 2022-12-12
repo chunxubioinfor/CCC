@@ -229,8 +229,10 @@ top_score <- function(ranking_df,curation_pathway,pathway,ranking_thr,file_name)
   score_mtx <- c()
   # Extract the top receptors to the certain pathway from the matrix
   top_list <- names(sort(ranking_df[pathway,],decreasing = TRUE)[1:ranking_thr])
+  print(top_list)
   # Extract the curated receptors as reference
   receptor_curation <- filter(curation_pathway,gsea_symbol == pathway)$receptor
+  print(receptor_curation)
   tp <- length(intersect(top_list,receptor_curation))
   fp <- length(top_list) - length(intersect(top_list,receptor_curation))
   tn <- ncol(ranking_df) - length(receptor_curation) - fp
@@ -242,7 +244,35 @@ top_score <- function(ranking_df,curation_pathway,pathway,ranking_thr,file_name)
 }
 
 
+for (i in 1:length(training_set)){
+  pathway <- training_set[i]
+  score <- top_score(cor_matrix_spearman,curation_pathway_filtered,pathway,25,'j')
+  print(score)
+}
 ligand_receptor <- colnames(cor_matrix_pearson)
 
+top_score_p <- function(ranking_df,curation_pathway,receptor_a,ranking_thr,file_name){
+  score_mtx <- c()
+  # Extract the top receptors to the certain pathway from the matrix
+  top_list <- names(sort(ranking_df[,receptor_a],decreasing = TRUE)[1:ranking_thr])
+  print(top_list)
+  # Extract the curated receptors as reference
+  pathway_curation <- filter(curation_pathway,receptor == receptor_a)$gsea_symbol
+  print(pathway_curation)
+  tp <- length(intersect(top_list,pathway_curation))
+  fp <- length(top_list) - length(intersect(top_list,pathway_curation))
+  tn <- nrow(ranking_df) - length(pathway_curation) - fp
+  sensitivity <- tp/length(pathway_curation)
+  specificity <- tn/(nrow(ranking_df) - length(pathway_curation))
+  FDR <- fp/length(top_list)
+  score_mtx <- c(sensitivity,specificity,FDR)
+  return(score_mtx)
+}
+
+for (i in 1:ncol(matrix_spearman_kegg_wiki_all)){
+  receptor_a <- colnames(matrix_spearman_kegg_wiki_all)[i]
+  score <- top_score_p(matrix_spearman_kegg_wiki_all,curation_pathway_filtered,receptor_a,25,'j')
+  print(score)
+}
 
 
