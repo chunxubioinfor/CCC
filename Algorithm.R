@@ -108,5 +108,12 @@ for (cut_off in seq(0.2, 0.9, 0.05)) {
 
 # 2. Algorithm II: Iteration of the top value
 perf_mtx_ls_tp <- list()
-pb <- progress_bar$new(total = 15)
+pb <- progress_bar$new(total = 4)
+for (top in c(1,5,10,25)) {
+  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_spearman,'top',top,'receptor')
+  perf_matrix <- perf_mtx(cor_or_not_mtx,'receptor',curation_pathway_filtered)
+  matrix_name <- paste('perf_matrix_top',top,sep = '_')
+  perf_mtx_ls_tp[[matrix_name]] <- perf_matrix
+  pb$tick()
+}
 
