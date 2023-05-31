@@ -94,7 +94,8 @@ perf_mtx <- function(cor_or_not_mtx, view, curation_pathway){
 # Test two functions
 # t <- correlated_or_not_mtx(cor_matrix_spearman,0.5)
 # a <- perf_mtx(t,'pathway',curation_pathway_filtered)
-# 1. Algorithm 1: Iteration of the cut-off value
+
+# 1. Algorithm I: Iteration of the cut-off value 
 perf_matrix_list <- list()
 pb <- progress_bar$new(total = 15)
 for (cut_off in seq(0.2, 0.9, 0.05)) {
@@ -105,5 +106,7 @@ for (cut_off in seq(0.2, 0.9, 0.05)) {
   pb$tick()
 }
 
-
+# 2. Algorithm II: Iteration of the top value
+perf_mtx_ls_tp <- list()
+pb <- progress_bar$new(total = 15)
 
