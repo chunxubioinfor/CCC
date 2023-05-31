@@ -2,6 +2,8 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 library(progress)
+library(ggplot2)
+library(reshape2)
 
 # Based on the Average Ranking result in which the plot is extremely left skewed,
 # we decided to develop an algorithm applied onto cor_matrix to determine whether correlated
@@ -92,21 +94,22 @@ perf_mtx <- function(cor_or_not_mtx, view, curation_pathway){
 }
 
 # Test two functions
-# t <- correlated_or_not_mtx(cor_matrix_spearman,0.5)
+t <- correlated_or_not_mtx(cor_matrix_spearman,"cut_off",0.5,'receptor')
 # a <- perf_mtx(t,'pathway',curation_pathway_filtered)
 
-# 1. Algorithm I: Iteration of the cut-off value 
-perf_matrix_list <- list()
+# 1. Algorithm I: Iteration of the cut-off value at the view of receptor
+perf_mtx_ls_co <- list()
 pb <- progress_bar$new(total = 15)
 for (cut_off in seq(0.2, 0.9, 0.05)) {
   cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_spearman,'cut_off',cut_off,'receptor')
   perf_matrix <- perf_mtx(cor_or_not_mtx,'receptor',curation_pathway_filtered)
   matrix_name <- paste('perf_matrix',cut_off,sep = '_')
-  perf_matrix_list[[matrix_name]] <- perf_matrix
+  perf_mtx_ls_co[[matrix_name]] <- perf_matrix
   pb$tick()
 }
 
-# 2. Algorithm II: Iteration of the top value
+
+# 2. Algorithm II: Iteration of the top value at the view of receptor
 perf_mtx_ls_tp <- list()
 pb <- progress_bar$new(total = 4)
 for (top in c(1,5,10,25)) {
@@ -116,4 +119,8 @@ for (top in c(1,5,10,25)) {
   perf_mtx_ls_tp[[matrix_name]] <- perf_matrix
   pb$tick()
 }
+
+t <- as.data.frame(t(perf_matrix_list[["perf_matrix_0.2"]]))
+t <- tibble::rownames_to_column(t,'receptor')
+
 
