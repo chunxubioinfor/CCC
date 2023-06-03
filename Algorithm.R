@@ -4,6 +4,7 @@ library(tidyr)
 library(progress)
 library(ggplot2)
 library(reshape2)
+library(RColorBrewer)
 
 # Based on the Average Ranking result in which the plot is extremely left skewed,
 # we decided to develop an algorithm applied onto cor_matrix to determine whether correlated
@@ -16,7 +17,7 @@ curation_pathway <- read_excel('./curation_pathway.xlsx',sheet = "Curation_Pathw
 curation_pathway <- curation_pathway %>% as_tibble() %>% separate_rows(receptors,sep = ',')  #reshape the dataset
 curation_pathway_filtered <- filter(curation_pathway,receptors %in% ligand_receptor)
 curation_pathway_filtered$index <- 1:nrow(curation_pathway_filtered)
-# write.csv(curation_pathway_filtered,'./curation_pathway_filtered.csv')
+write.csv(curation_pathway_filtered,'./curation_pathway_filtered.csv')
 validation_pathway <- curation_pathway_filtered %>% group_by(source) %>% sample_frac(size = 1/3) #leave alone for final validation
 testing_pathway<- anti_join(curation_pathway_filtered,validation_pathway,by = 'index')
 
@@ -61,8 +62,8 @@ correlated_or_not_mtx <- function(cor_matrix, algorithm, value,view){
   }
 }
 # Define a function which calculate and output performance matrix
-perf_mtx <- function(cor_or_not_mtx, view, curation_pathway){
-  if(view == "receptor"){
+perf_mtx <- function(cor_or_not_mtx,view,curation_pathway){
+  if(view == 'receptor'){
     perf_matrix <- matrix(0,nrow = 3,ncol = ncol(cor_or_not_mtx),dimnames = list(c('sensitivity','specificity','FDR'),colnames(cor_or_not_mtx)))
     for(i in 1:ncol(cor_or_not_mtx)){
       correlated_pathway <- rownames(cor_or_not_mtx)[cor_or_not_mtx[,i] == "TRUE"]
@@ -95,13 +96,19 @@ perf_mtx <- function(cor_or_not_mtx, view, curation_pathway){
 
 # Test two functions
 t <- correlated_or_not_mtx(cor_matrix_spearman,"cut_off",0.5,'receptor')
-# a <- perf_mtx(t,'pathway',curation_pathway_filtered)
+a <- perf_mtx(t,'pathway',curation_pathway_filtered)
 
-# 1. Algorithm I: Iteration of the cut-off value at the view of receptor
+# Subset the correlation matrix to test two algorithms 
+receptors_subset <- unique(curation_pathway_filtered$receptors)
+pathways_subset <- unique(curation_pathway_filtered$gsea_symbol)
+cor_matrix_subset <- cor_matrix_spearman[pathways_subset,receptors_subset]
+
+# 1. Algorithm I: Iteration of the cut-off value at the view of receptor;
+# save all the performance matrix into a list: perf_mtx_ls_co
 perf_mtx_ls_co <- list()
 pb <- progress_bar$new(total = 15)
 for (cut_off in seq(0.2, 0.9, 0.05)) {
-  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_spearman,'cut_off',cut_off,'receptor')
+  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_subset,'cut_off',cut_off,'receptor')
   perf_matrix <- perf_mtx(cor_or_not_mtx,'receptor',curation_pathway_filtered)
   matrix_name <- paste('perf_matrix',cut_off,sep = '_')
   perf_mtx_ls_co[[matrix_name]] <- perf_matrix
@@ -113,8 +120,8 @@ for (cut_off in seq(0.2, 0.9, 0.05)) {
 perf_mtx_ls_tp <- list()
 pb <- progress_bar$new(total = 4)
 for (top in c(1,5,10,25)) {
-  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_spearman,'top',top,'receptor')
-  perf_matrix <- perf_mtx(cor_or_not_mtx,'receptor',curation_pathway_filtered)
+  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_subset,'top',top,'receptor')
+  perf_matrix <- perf_mtx(cor_or_not_mtx,view = "receptor",curation_pathway_filtered)
   matrix_name <- paste('perf_matrix_top',top,sep = '_')
   perf_mtx_ls_tp[[matrix_name]] <- perf_matrix
   pb$tick()
@@ -124,3 +131,42 @@ t <- as.data.frame(t(perf_matrix_list[["perf_matrix_0.2"]]))
 t <- tibble::rownames_to_column(t,'receptor')
 
 # First meeting
+# Performance Matrix Visulaization
+
+## Generate a data frame which contains all the info
+mtx_to_df <- function(matrix_list){
+  output_df <- data.frame(matrix(nrow = 0,ncol = 5))
+  colnames(output_df) <- c('algorithm','receptor','sensitivity','specificity','FDR')
+  for(i in 1:length(matrix_list)){
+    df <- as.data.frame(t(matrix_list[[i]]))
+    df$receptor <- row.names(df)
+    row.names(df) <- NULL
+    df$algorithm <- names(matrix_list)[i]
+    output_df <- rbind(output_df,df)
+  }
+  return(output_df)
+}
+
+perf_df_co <- mtx_to_df(perf_mtx_ls_co)
+perf_df_tp <- mtx_to_df(perf_mtx_ls_tp)
+
+## Visualize with a boxplot
+perf_df_co <- melt(perf_df_co,id.vars = c('receptor','algorithm'),measure.vars = c('sensitivity','specificity','FDR'),
+                  variable.name = 'perf_variable',value.name = 'perf_value')
+perf_df_tp <- melt(perf_df_tp,id.vars = c('receptor','algorithm'),measure.vars = c('sensitivity','specificity','FDR'),
+                   variable.name = 'perf_variable',value.name = 'perf_value')
+
+viz_boxplot <- function(melted_df,algorithm){
+  p <- ggplot(data = melted_df, aes(x = algorithm,y = perf_value,fill=factor(perf_variable)))+
+    geom_boxplot()+
+    scale_fill_brewer(palette = "Pastel2")+
+    scale_x_discrete(labels = seq(0.2, 0.9, 0.05), name = algorithm)+
+    guides(fill=guide_legend(title = NULL))
+  print(p)
+}
+
+viz_boxplot(perf_df_co,"Cut-off Value")
+viz_boxplot(perf_df_tp,"Cut-off Value")
+
+
+
