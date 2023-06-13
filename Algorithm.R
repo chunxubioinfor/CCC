@@ -76,6 +76,7 @@ perf_mtx <- function(cor_or_not_mtx,view,curation_pathway){
       FDR <- fp/length(correlated_pathway)
       perf_matrix[,i] <- c(sensitivity,specificity,FDR)
     }
+    return(perf_matrix)
   }
   else if(view == 'pathway'){
     perf_matrix <- matrix(0,nrow = nrow(cor_or_not_mtx),ncol = 3,dimnames = list(rownames(cor_or_not_mtx),c('sensitivity','specificity','FDR')))
@@ -89,9 +90,10 @@ perf_mtx <- function(cor_or_not_mtx,view,curation_pathway){
       specificity <- tn/(nrow(cor_or_not_mtx) - length(ref_receptor))
       FDR <- fp/length(correlated_receptor)
       perf_matrix[i,] <- c(sensitivity,specificity,FDR)
+    }
+    perf_matrix <- t(perf_matrix)
+    return(perf_matrix)
   }
-  }
-  return(perf_matrix)
 }
 
 # Test two functions
@@ -155,18 +157,56 @@ perf_df_co <- melt(perf_df_co,id.vars = c('receptor','algorithm'),measure.vars =
                   variable.name = 'perf_variable',value.name = 'perf_value')
 perf_df_tp <- melt(perf_df_tp,id.vars = c('receptor','algorithm'),measure.vars = c('sensitivity','specificity','FDR'),
                    variable.name = 'perf_variable',value.name = 'perf_value')
-
+perf_df_tp$algorithm <- factor(perf_df_tp$algorithm,levels = c('perf_matrix_top_1','perf_matrix_top_5',
+                                                                'perf_matrix_top_10','perf_matrix_top_25'))
 viz_boxplot <- function(melted_df,algorithm){
   p <- ggplot(data = melted_df, aes(x = algorithm,y = perf_value,fill=factor(perf_variable)))+
     geom_boxplot()+
     scale_fill_brewer(palette = "Pastel2")+
-    scale_x_discrete(labels = seq(0.2, 0.9, 0.05), name = algorithm)+
-    guides(fill=guide_legend(title = NULL))
+    scale_x_discrete(name = algorithm)+
+    guides(fill=guide_legend(title = NULL))+
+    geom_text(stat = "summary", fun = median, vjust = -1, aes(label = round(..y.., 2)),position = position_dodge(0.75))
   print(p)
+  ggsave(paste0(algorithm,'.png'),p)
 }
 
 viz_boxplot(perf_df_co,"Cut-off Value")
-viz_boxplot(perf_df_tp,"Cut-off Value")
+viz_boxplot(perf_df_tp,"Ranking Threshold")
+
+## Then,from the point of view of pathway
+perf_mtx_ls_co_pw <- list()
+pb <- progress_bar$new(total = 15)
+for (cut_off in seq(0.2, 0.9, 0.05)) {
+  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_subset,'cut_off',cut_off,'pathway')
+  perf_matrix <- perf_mtx(cor_or_not_mtx,'pathway',curation_pathway_filtered)
+  matrix_name <- paste('perf_matrix',cut_off,sep = '_')
+  perf_mtx_ls_co_pw[[matrix_name]] <- perf_matrix
+  pb$tick()
+}
+
+perf_mtx_ls_tp_pw <- list()
+pb <- progress_bar$new(total = 4)
+for (top in c(1,5,10,25)) {
+  cor_or_not_mtx <- correlated_or_not_mtx(cor_matrix_subset,'top',top,'pathway')
+  perf_matrix <- perf_mtx(cor_or_not_mtx,view = "pathway",curation_pathway_filtered)
+  matrix_name <- paste('perf_matrix_top',top,sep = '_')
+  perf_mtx_ls_tp_pw[[matrix_name]] <- perf_matrix
+  pb$tick()
+}
+
+perf_df_co_pw <- mtx_to_df(perf_mtx_ls_co_pw)
+perf_df_tp_pw <- mtx_to_df(perf_mtx_ls_tp_pw)
+
+perf_df_co_pw <- melt(perf_df_co_pw,id.vars = c('receptor','algorithm'),measure.vars = c('sensitivity','specificity','FDR'),
+                   variable.name = 'perf_variable',value.name = 'perf_value')
+perf_df_tp_pw <- melt(perf_df_tp_pw,id.vars = c('receptor','algorithm'),measure.vars = c('sensitivity','specificity','FDR'),
+                   variable.name = 'perf_variable',value.name = 'perf_value')
+perf_df_tp_pw$algorithm <- factor(perf_df_tp_pw$algorithm,levels = c('perf_matrix_top_1','perf_matrix_top_5',
+                                                               'perf_matrix_top_10','perf_matrix_top_25'))
+viz_boxplot(perf_df_co_pw,"Cut-off Value")
+viz_boxplot(perf_df_tp_pw,"Ranking Threshold")
 
 
-
+## Finally, save the important output incl. all the performance matrix
+saveRDS(list(perf_mtx_ls_co,perf_mtx_ls_tp),'./perf_mtx_R.rds')
+saveRDS(list(perf_mtx_ls_co_pw,perf_mtx_ls_tp_pw),'./perf_mtx_P.rds')

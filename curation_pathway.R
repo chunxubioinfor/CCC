@@ -28,7 +28,7 @@ write.csv(wiki_symbol_id,'./tmp.csv')
 
 
 # Then manually curate the KEGG pathway and WIKi pathway
-# This step took me aroud two weeks
+# This step took me around two weeks
 # The results were saved in curation_pathway.csv
 # Read into the file and reshape the dataset
 curation_pathway_kegg <- read.xls('./curation_pathway.xlsx',sheet = 1,na.strings=c("NA","#DIV/0!",''))
